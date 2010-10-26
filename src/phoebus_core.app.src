@@ -1,4 +1,4 @@
-{application, phoebus,
+{application, phoebus_core,
  [
   {description, ""},
   {vsn, "1"},

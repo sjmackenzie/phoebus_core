@@ -1,0 +1,10 @@
+{application,phoebus_core,
+             [{description,[]},
+              {vsn,"1"},
+              {modules,[algos,msg_buffer,phoebus_app,phoebus_master,
+                        phoebus_rw,phoebus_sup,phoebus_utils,phoebus_worker,
+                        table_manager,worker_store]},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {mod,{phoebus_app,[]}},
+              {env,[]}]}.

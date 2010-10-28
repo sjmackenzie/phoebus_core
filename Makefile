@@ -1,11 +1,10 @@
 .PHONY: rel deps
 
 all: deps
-	@./rebar compile
+	@rebar compile
 
 deps:
-	@./rebar get-deps
+	@rebar get-deps
 
 clean:
-	@./rebar clean
-
+	@rebar clean

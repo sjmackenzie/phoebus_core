@@ -1,12 +1,26 @@
-%%%-------------------------------------------------------------------
-%%% @author Arun Suresh <>
-%%% @copyright (C) 2010, Arun Suresh
-%%% @doc
-%%%
-%%% @end
-%%% Created : 22 Sep 2010 by Arun Suresh <>
-%%%-------------------------------------------------------------------
+%% -------------------------------------------------------------------
+%%
+%% Phoebus: A distributed framework for large scale graph processing.
+%%
+%% Copyright (c) 2010 Arun Suresh. All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
+%% KIND, either express or implied.  See the License for the 
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
 -module(worker_store).
+-author('Arun Suresh <arun.suresh@gmail.com>').
 -include("phoebus.hrl").
 
 
@@ -17,12 +31,10 @@
          close_step_file/2, 
          transfer_files/3,
          create_receiver/6,
-         deserialize_rec/2,
          load_active_vertices/2,
          table_name/3,
          table_insert/3,
          mkdir_p/1,
-         serialize_rec/2,
          commit_step/3]).
 
 %%%===================================================================
@@ -148,7 +160,7 @@ store_vertex(Vertex, {_, {JobId, MyWId, WId}}, Step, FDs)
     end,
   store_vertex_helper(Table, Buffer, Vertex, WId, FDs);
 store_vertex(Vertex, {_Node, {JobId, MyWId, WId}}, Step, FDs) ->
-  VRec = serialize_rec(vertex, Vertex),
+  VRec = serde:serialize_rec(vertex, Vertex),
   {ok, FD} = 
     case proplists:get_value(WId, FDs) of
       undefined -> 
@@ -263,9 +275,8 @@ recv_loop({init, Type}, JobId, WId, Mode, Step, Idx) ->
 recv_loop({Type, WriteFD, Buffer, RCount}, JobId, WId, Mode, Step, Idx) ->
   receive
     {data, Data} -> 
-      BinLines = re:split(Data, "\n"),
       %% io:format("~n~n Recvd lines : ~p ~n~n", [BinLines]),
-      {VRecs, Rem} = extract_records(Type, Buffer, BinLines),
+      {VRecs, Rem} = serde:deserialize_stream(Type, Buffer, Data),
       NewRCount = RCount + length(VRecs),
       case RCount > 750 of
         true -> 
@@ -315,84 +326,7 @@ get_other_worker_table(JobId, OWId, Type, Step) ->
       {error, enoent} -> backup_table
     end,
   table_name(Table, Type, Step).
-
-extract_records(Type, Buffer, BinLines) ->
-  lists:foldl(
-    fun(BinLine, {AccRecs, Buff}) ->
-        L = <<Buff/binary, BinLine/binary>>,
-        case deserialize_rec(Type, L) of
-          null -> {AccRecs, <<>>};
-          incomplete -> {AccRecs, L};
-          Rec -> {[Rec|AccRecs], <<>>}
-        end
-    end, {[], Buffer}, BinLines).
   
-
-deserialize_rec(vertex, <<>>) -> null;
-deserialize_rec(vertex, Line) ->
-  BSize = size(Line) - 1,
-  <<_:BSize/binary, Last/binary>> = Line,
-  case Last of
-    <<$\r>> -> deserialize_rec(vertex, Line, #vertex{}, [], <<>>, vname);
-    _ -> incomplete
-  end;
-deserialize_rec(msg, <<>>) -> null;
-deserialize_rec(msg, Line) ->
-  BSize = size(Line) - 1,
-  <<Rest:BSize/binary, Last/binary>> = Line,
-  case Last of
-    <<$\r>> -> deserialize_rec(msg, Line, {null, null}, [], <<>>, vname);
-    <<$\n>> -> deserialize_rec(msg, <<Rest/binary, $\r>>);
-    _ -> incomplete
-  end.
-  
-%% vid \t vname \t vstate \t vval \t [eval \t tvid\t tvname \t].. \r\n
-deserialize_rec(vertex, <<$\r, _/binary>>, V, EList, _, _) ->
-  {V#vertex.vertex_name, V#vertex.vertex_value, EList};
-deserialize_rec(vertex, <<$\t, Rest/binary>>, V, EList, Buffer, vname) ->
-  VName = binary_to_list(Buffer),
-  deserialize_rec(vertex, Rest, V#vertex{vertex_name = VName}, 
-                  EList, <<>>, vval);
-deserialize_rec(vertex, <<$\t, Rest/binary>>, V, EList, Buffer, vval) ->
-  VVal = binary_to_list(Buffer),
-  deserialize_rec(vertex, Rest, V#vertex{vertex_value = VVal}, 
-                  EList, <<>>, eval);
-deserialize_rec(vertex, <<$\t, Rest/binary>>, V, EList, Buffer, eval) ->
-  deserialize_rec(vertex, Rest, V, EList, <<>>, 
-                  {tvname, binary_to_list(Buffer)});
-deserialize_rec(vertex, <<$\t, Rest/binary>>, V, EList, 
-                Buffer, {tvname, EVal}) ->
-  deserialize_rec(vertex, Rest, V, [{EVal, binary_to_list(Buffer)}|EList], 
-                  <<>>, eval);
-deserialize_rec(vertex, <<X, Rest/binary>>, V, EList, Buffer, Token) ->
-  deserialize_rec(vertex, Rest, V, EList, <<Buffer/binary, X>>, Token);
-
-deserialize_rec(msg, <<$\r, _/binary>>, Msg, _, _, _) -> Msg;
-deserialize_rec(msg, <<$\t, Rest/binary>>, {_, _}, [], Buffer, vname) ->
-  VName = binary_to_list(Buffer),
-  deserialize_rec(msg, Rest, {VName, []}, [], <<>>, vmsg);
-deserialize_rec(msg, <<$\t, Rest/binary>>, {VN, L}, [], Buffer, vmsg) ->
-  Msg = binary_to_list(Buffer),
-  deserialize_rec(msg, Rest, {VN, [Msg|L]}, [], <<>>, vmsg);
-deserialize_rec(msg, <<X, Rest/binary>>, V, [], Buffer, Token) ->
-  deserialize_rec(msg, Rest, V, [], <<Buffer/binary, X>>, Token).
-
-
-
-serialize_rec(vertex, {VName, VVal, EList}) ->  
-  lists:concat([VName, "\t",
-                VVal, "\t", serialize_edge_rec(EList, [])]);
-serialize_rec(msg, {VName, Msgs}) ->
-  VName ++ "\t" ++ serialize_msgs(Msgs) ++ "\r\n".
-
-serialize_edge_rec([], Done) ->
-  Done ++ "\r\n";
-serialize_edge_rec([{EVal, VName}|Rest], Done) ->
-  serialize_edge_rec(Rest, 
-                     lists:concat([EVal, "\t", VName, "\t", Done])).
-
-serialize_msgs(Msgs) ->
-  lists:concat([M ++ "\t" || M <- Msgs]).
   
 mkdir_p(Loc) ->
   {_, FinalRetVal} = 

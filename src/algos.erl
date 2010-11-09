@@ -1,12 +1,26 @@
-%%%-------------------------------------------------------------------
-%%% @author Arun Suresh <>
-%%% @copyright (C) 2010, Arun Suresh
-%%% @doc
-%%%
-%%% @end
-%%% Created :  5 Oct 2010 by Arun Suresh <>
-%%%-------------------------------------------------------------------
+%% -------------------------------------------------------------------
+%%
+%% Phoebus: A distributed framework for large scale graph processing.
+%%
+%% Copyright (c) 2010 Arun Suresh. All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
+%% KIND, either express or implied.  See the License for the 
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% -------------------------------------------------------------------
 -module(algos).
+-author('Arun Suresh <arun.suresh@gmail.com>').
 
 %% API
 -export([shortest_path/2, create_binary_tree/3]).
@@ -71,7 +85,8 @@ create_binary_tree(Dir, NumFiles, NumRecs) ->
     fun(N, [F|Rest]) ->
         Line = 
           lists:concat(
-            [Fn(N),"\t",Fn(N),"\t1\t",Fn(N*2),"\t1\t",Fn((N*2)+1),"\t\n"]),
+            [Fn(N),"\t",Fn(N),"\t", 
+             "1\t",Fn(N*2),"\t1\t",Fn((N*2)+1),"\t\r\n"]),
         file:write(F, Line),
         Rest ++ [F]
     end, FDs, lists:seq(1, NumRecs)),

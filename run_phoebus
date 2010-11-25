@@ -1,1 +1,0 @@
-env A_FILE=$PWD/vm$1.args ./rel/phoebus/bin/phoebus console

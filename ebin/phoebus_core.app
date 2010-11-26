@@ -17,6 +17,8 @@
                         thriftHadoopFileSystem_thrift,
                         worker_store]},
               {registered,[]},
-              {applications,[kernel,stdlib]},
+              {applications,[kernel
+			,stdlib
+			,riak_core]},
               {mod,{phoebus_core_app,[]}},
               {env,[]}]}.

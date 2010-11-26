@@ -8,7 +8,7 @@
                         external_store_hdfs,
                         hadoopfs_types,
                         msg_buffer,
-                        phoebus_app,
+                        phoebus_core_app,
                         phoebus_master,
                         phoebus_sup,
                         phoebus_utils,

@@ -13,13 +13,13 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(phoebus_sup).
+-module(phoebus_core_sup).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -behaviour(supervisor).
 
@@ -63,6 +63,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+
   RestartStrategy = one_for_one,
   MaxRestarts = 1000,
   MaxSecondsBetweenRestarts = 3600,
@@ -73,11 +74,24 @@ init([]) ->
   Shutdown = 2000,
   Type = worker,
 
-  TableManager = 
+  TableManager =
     {table_manager, {table_manager, start_link, [100]},
             Restart, Shutdown, Type, [table_manager]},
+  VMaster = {phoebus_core_vnode_master
+             ,{riak_core_vnode_master
+               , start_link
+               ,[phoebus_core_vnode]}
+             ,permanent
+             ,5000
+             ,worker
+             ,[riak_core_vnode_master]},
 
-  {ok, {SupFlags, [TableManager]}}.
+  Processes = lists:flatten([
+     VMaster,
+     TableManager
+  ]),
+
+  {ok, {SupFlags, [Processes]}}.
 
 %%%===================================================================
 %%% Internal functions

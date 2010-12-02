@@ -13,14 +13,15 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
 %% -------------------------------------------------------------------
 -module(phoebus_core_app).
 -author('Arun Suresh <arun.suresh@gmail.com>').
+-author('Stewart Mackenzie <setori88@gmail.com>').
 
 -behaviour(application).
 
@@ -48,15 +49,26 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
+  riak_core_util:start_app_deps(phoebus_core),
+
+  case app_helper:get_env(phoebus_core, add_paths) of
+    List when is_list(List) ->
+      ok = code:add_paths(List);
+    _ ->
+      ok
+  end,
+
   error_logger:tty(false),
   BaseDir = get_log_base(),
-  error_logger:logfile({open, BaseDir ++ 
+  error_logger:logfile({open, BaseDir ++
                           atom_to_list(erlang:node()) ++ ".log"}),
   ets:new(table_mapping, [named_table, public]),
   ets:new(worker_registry, [named_table, public]),
   ets:new(all_nodes, [named_table, public]),
   case phoebus_sup:start_link() of
     {ok, Pid} ->
+      riak_core:register_vnode_module(phoebus_core_vnode),
+      riak_core_node_watcher:service_up(riak_core, self()),
       {ok, Pid};
     Error ->
       Error

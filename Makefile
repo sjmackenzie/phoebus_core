@@ -1,6 +1,9 @@
 .PHONY: rel deps
 
-all: 
+all: deps
+	@rebar compile
+
+build:
 	@rebar compile
 
 deps:

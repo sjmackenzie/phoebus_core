@@ -65,10 +65,10 @@ start(_StartType, _StartArgs) ->
   ets:new(table_mapping, [named_table, public]),
   ets:new(worker_registry, [named_table, public]),
   ets:new(all_nodes, [named_table, public]),
-  case phoebus_sup:start_link() of
+  case phoebus_core_sup:start_link() of
     {ok, Pid} ->
       riak_core:register_vnode_module(phoebus_core_vnode),
-      riak_core_node_watcher:service_up(riak_core, self()),
+
       {ok, Pid};
     Error ->
       Error

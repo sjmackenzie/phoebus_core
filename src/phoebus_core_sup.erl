@@ -64,34 +64,28 @@ start_link() ->
 %%--------------------------------------------------------------------
 init([]) ->
 
-  RestartStrategy = one_for_one,
-  MaxRestarts = 1000,
-  MaxSecondsBetweenRestarts = 3600,
-
-  SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
-
-  Restart = permanent,
-  Shutdown = 2000,
-  Type = worker,
-
   TableManager =
-    {table_manager, {table_manager, start_link, [100]},
-            Restart, Shutdown, Type, [table_manager]},
-  VMaster = {phoebus_core_vnode_master
-             ,{riak_core_vnode_master
-               , start_link
-               ,[phoebus_core_vnode]}
-             ,permanent
-             ,5000
-             ,worker
-             ,[riak_core_vnode_master]},
+    {table_manager
+     , {table_manager, start_link, [100]}
+     , permanent
+     , 5000
+     , worker
+     , [table_manager]},
+  VMaster =
+    {phoebus_core_vnode_master
+     ,{riak_core_vnode_master, start_link,[phoebus_core_vnode]}
+     ,permanent
+     ,5000
+     ,worker
+     ,[riak_core_vnode_master]},
 
   Processes = lists:flatten([
      VMaster,
      TableManager
   ]),
 
-  {ok, {SupFlags, [Processes]}}.
+  {ok, {{one_for_one, 10, 10}, Processes}}.
+
 
 %%%===================================================================
 %%% Internal functions

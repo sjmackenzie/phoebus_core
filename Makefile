@@ -6,6 +6,9 @@ all: deps
 build:
 	@rebar compile
 
+distclean: clean
+	./rebar delete-deps
+
 deps:
 	@rebar get-deps
 

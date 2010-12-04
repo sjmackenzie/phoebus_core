@@ -15,7 +15,8 @@
                         phoebus_worker,
                         table_manager,
                         thriftHadoopFileSystem_thrift,
-                        worker_store]},
+                        worker_store,
+			path_find]},
               {registered,[]},
               {applications,[kernel
 			,stdlib

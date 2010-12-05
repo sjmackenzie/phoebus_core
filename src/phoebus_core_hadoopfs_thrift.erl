@@ -4,7 +4,7 @@
 %% DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
 %%
 
--module(thriftHadoopFileSystem_thrift).
+-module(phoebus_core_hadoopfs_thrift).
 -behaviour(thrift_service).
 
 
@@ -202,4 +202,3 @@ function_info('getFileBlockLocations', exceptions) ->
   {struct, [{1, {struct, {'hadoopfs_types', 'thriftIOException'}}}]}
 ;
 function_info(_Func, _Info) -> no_function.
-

@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(phoebus_master).
+-module(phoebus_core_master).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -include("phoebus.hrl").
 -behaviour(gen_fsm).

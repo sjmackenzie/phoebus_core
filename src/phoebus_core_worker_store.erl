@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(worker_store).
+-module(phoebus_core_worker_store).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -include("phoebus.hrl").
 

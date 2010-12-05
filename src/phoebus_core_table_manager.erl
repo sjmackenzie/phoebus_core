@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(table_manager).
+-module(phoebus_core_table_manager).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -behaviour(gen_server).
 

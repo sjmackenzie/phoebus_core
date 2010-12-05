@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(serde).
+-module(phoebus_core_serde).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -include("phoebus.hrl").
 

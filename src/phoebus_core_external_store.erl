@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(phoebus_external_store).
+-module(phoebus_core_external_store).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 
 -export([behaviour_info/1]).

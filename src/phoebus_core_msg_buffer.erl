@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(msg_buffer).
+-module(phoebus_core_msg_buffer).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -behaviour(gen_server).
 

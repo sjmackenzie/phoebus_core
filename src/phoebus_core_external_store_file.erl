@@ -13,16 +13,16 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(external_store_file).
+-module(phoebus_core_external_store_file).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 
--behaviour(external_store).
+-behaviour(phoebus_core_external_store).
 -include("phoebus.hrl").
 
 %% API
@@ -40,7 +40,6 @@ init([$f, $i, $l, $e, $:, $/, $/ | AbsPath] = URI) ->
   {true, [{uri, URI}, {abs_path, AbsPath}, {type, file}, {is_dir, IsDir}]};
 init(_) -> {false, []}.
 
-  
 partition_input(State) ->
   case proplists:get_value(is_dir, State) of
     true ->
@@ -56,44 +55,44 @@ partition_input(State) ->
 read_vertices(State, Recvr) ->
   case proplists:get_value(is_dir, State) of
     false ->
-      start_reading(proplists:get_value(type, State), 
+      start_reading(proplists:get_value(type, State),
                     proplists:get_value(abs_path, State), Recvr, State);
     _ ->
       ?ERROR("URI is a directory", [{uri, proplists:get_value(uri, State)}]),
       destroy(State),
       {error, eisdir}
-  end.  
+  end.
 
 store_vertices(State, Vertices) ->
   case proplists:get_value(is_dir, State) of
     false ->
-      {FD, NewState} = 
+      {FD, NewState} =
         case proplists:get_value(open_file_ref, State) of
           undefined ->
-            {ok, F} = 
+            {ok, F} =
               file:open(proplists:get_value(abs_path, State), [write]),
             {F, [{open_file_ref, F}|State]};
           F -> {F, State}
         end,
       lists:foreach(
-        fun(V) -> 
+        fun(V) ->
             file:write(FD, serde:serialize_rec(vertex, V)) end, Vertices),
       NewState;
     _ ->
       ?ERROR("URI is a directory", [{uri, proplists:get_value(uri, State)}]),
       destroy(State),
       {error, eisdir}
-  end.  
+  end.
 
 destroy(State) ->
   case proplists:get_value(open_file_ref, State) of
     undefined -> ok;
-    FD -> 
+    FD ->
       try
         file:close(FD)
       catch
         E1:E2 ->
-          ?WARN("Error while closing file handle..", 
+          ?WARN("Error while closing file handle..",
                  [{error, E1}, {reason, E2}]),
           ok
       end
@@ -109,7 +108,7 @@ destroy(State) ->
 %%% Internal functions
 %%%===================================================================
 start_reading(file, File, Recvr, State) ->
-  RPid = spawn(fun() -> reader_loop({init, File}, Recvr, 
+  RPid = spawn(fun() -> reader_loop({init, File}, Recvr,
                                     {State, <<>>, []}) end),
   {ok, RPid, State}.
 

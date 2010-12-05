@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(phoebus_utils).
+-module(phoebus_core_utils).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 -include("phoebus.hrl").
 %% API

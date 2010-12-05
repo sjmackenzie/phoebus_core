@@ -4,7 +4,7 @@
 %% DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
 %%
 
--module(hadoopfs_types).
+-module(phoebus_core_hadoopfs_types).
 
 -include("hadoopfs_types.hrl").
 

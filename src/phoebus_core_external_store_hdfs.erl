@@ -19,10 +19,10 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(external_store_hdfs).
+-module(phoebus_core_external_store_hdfs).
 -author('Arun Suresh <arun.suresh@gmail.com>').
 
--behaviour(external_store).
+-behaviour(phoebus_core_external_store).
 -include("phoebus.hrl").
 -include("thriftHadoopFileSystem_thrift.hrl").
 

@@ -13,8 +13,8 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
@@ -25,10 +25,10 @@
 
 
 %% API
--export([purge/0, init/2, store_vertex/4, 
-         init_step_file/5, init_step_file/6, 
-         sync_table/2, sync_table/4, 
-         close_step_file/2, 
+-export([purge/0, init/2, store_vertex/4,
+         init_step_file/5, init_step_file/6,
+         sync_table/2, sync_table/4,
+         close_step_file/2,
          transfer_files/3,
          create_receiver/6,
          load_active_vertices/2,
@@ -41,15 +41,15 @@
 %%% API
 %%%===================================================================
 purge() ->
-  os:cmd("rm -rf " ++ ?BASE_DIR()).  
+  os:cmd("rm -rf " ++ ?BASE_DIR()).
 
 init(JobId, WId) ->
   ok = mkdir_p(?JOB_DIR(JobId, WId)),
   case file:open(?LAST_STEP_FILE(JobId, WId), [read]) of
     {error, enoent} -> {last_step, -1};
-    {ok, F} -> 
+    {ok, F} ->
       case file:read_line(F) of
-        {ok, StrStep} when is_list(StrStep) -> 
+        {ok, StrStep} when is_list(StrStep) ->
           file:close(F),
           {last_step, list_to_integer(StrStep)};
         _ ->
@@ -61,38 +61,37 @@ init(JobId, WId) ->
 init_step_file(Type, JobId, WId, Mode, Step) ->
   init_step_file(Type, JobId, WId, Mode, Step, Step).
 
-init_step_file(Type, JobId, WId, {table, Table}, Step, Idx) -> 
+init_step_file(Type, JobId, WId, {table, Table}, Step, Idx) ->
   ok = mkdir_p(?STEP_DIR(JobId, WId, Step)),
   TableName = table_name(Table, Type, Step),
-  ets:insert(worker_registry, {{TableName, sync}, 0}), 
+  ets:insert(worker_registry, {{TableName, sync}, 0}),
   case dets:info(TableName) of
-    undefined -> 
-      ?DEBUG("Opening Table...", 
+    undefined ->
+      ?DEBUG("Opening Table...",
              [{job, JobId}, {worker, WId}, {step, Step}]),
       case Type of
         flag ->
-          dets:open_file(TableName, 
+          dets:open_file(TableName,
                          [{file, step_data(Type, JobId, WId, Step, Idx)}]);
         vertex ->
-          dets:open_file(TableName, 
+          dets:open_file(TableName,
                          [{file, step_data(Type, JobId, WId, Step, Idx)}]);
         msg ->
-          dets:open_file(TableName, 
-                         [{file, step_data(Type, JobId, WId, Step, Idx)}, 
+          dets:open_file(TableName,
+                         [{file, step_data(Type, JobId, WId, Step, Idx)},
                           {type, duplicate_bag}])
       end;
     _ -> {ok, TableName}
   end;
-init_step_file(Type, JobId, WId, _Mode, Step, Idx) -> 
+init_step_file(Type, JobId, WId, _Mode, Step, Idx) ->
   ok = mkdir_p(?STEP_DIR(JobId, WId, Step)),
   {table, Table} = table_manager:lookup_table(JobId, WId),
   init_step_file(Type, JobId, WId, {table, Table}, Step, Idx).
-        
 
 init_rstep_file(Type, JobId, WId, RWId, Mode, Step) ->
   init_rstep_file(Type, JobId, WId, RWId, Mode, Step, Step).
 
-init_rstep_file(Type, JobId, WId, RWId, Mode, Step, Idx) -> 
+init_rstep_file(Type, JobId, WId, RWId, Mode, Step, Idx) ->
   ok = mkdir_p(?RSTEP_DIR(JobId, WId, Step, RWId)),
   file:open(rstep_data(Type, JobId, WId, Step, RWId, Idx), Mode).
 
@@ -101,23 +100,23 @@ sync_table(Table, Type, Step, IsForce) ->
   sync_table(TName, IsForce).
 
 sync_table(TName, IsForce) ->
-  LastSync = 
+  LastSync =
     case ets:lookup(worker_registry, {TName, sync}) of
       [{_, LS}] -> LS;
       _ -> 0
     end,
   CurrSize = dets:info(TName, size),
   case (((CurrSize - LastSync) > 100) or IsForce) of
-    true -> 
+    true ->
       ets:insert(worker_registry, {{TName, sync}, CurrSize}),
       FileName = dets:info(TName, filename),
       dets:close(TName),
       dets:open_file(TName, {file, FileName});
     _ -> ok
-  end.      
+  end.
 
 close_step_file(_, {_, []}) -> void;
-close_step_file(Type, {Table, Buffer}) -> 
+close_step_file(Type, {Table, Buffer}) ->
   table_insert(Type, Table, Buffer);
 close_step_file(_, FD) ->
   file:close(FD).
@@ -136,24 +135,23 @@ commit_step(JobId, WId, Step) ->
   os:cmd("cp " ++ OldDFile ++ " " ++ NewDFile).
 
 
-load_active_vertices(JobId, WId) ->  
+load_active_vertices(JobId, WId) ->
   {_, Table} = table_manager:lookup_table(JobId, WId),
-  ActiveVerts = 
+  ActiveVerts =
     dets:select(table_name(Table, vertex, 0),
                [{{'$1', '_', '_'}, [], ['$$']}]),
   lists:foreach(
     fun([V]) -> dets:insert(table_name(Table, flag, 0), {V, active}) end,
     ActiveVerts).
   %% copy_step_file(JobId, WId, Step, vertex),
-  %% copy_step_file(JobId, WId, Step, msg).  
-  
+  %% copy_step_file(JobId, WId, Step, msg).
 
 
-store_vertex(Vertex, {_, {JobId, MyWId, WId}}, Step, FDs) 
+store_vertex(Vertex, {_, {JobId, MyWId, WId}}, Step, FDs)
   when WId =:= MyWId->
-  {Table, Buffer} = 
+  {Table, Buffer} =
     case proplists:get_value(MyWId, FDs) of
-      undefined -> 
+      undefined ->
         {ok, T} = init_step_file(vertex, JobId, MyWId, [write], Step),
         {T, []};
       OldTD -> OldTD
@@ -161,9 +159,9 @@ store_vertex(Vertex, {_, {JobId, MyWId, WId}}, Step, FDs)
   store_vertex_helper(Table, Buffer, Vertex, WId, FDs);
 store_vertex(Vertex, {_Node, {JobId, MyWId, WId}}, Step, FDs) ->
   VRec = serde:serialize_rec(vertex, Vertex),
-  {ok, FD} = 
+  {ok, FD} =
     case proplists:get_value(WId, FDs) of
-      undefined -> 
+      undefined ->
         init_rstep_file(vertex, JobId, MyWId, WId, [write], Step);
       OldFD -> {ok, OldFD}
     end,
@@ -186,31 +184,31 @@ table_insert(Type, Table, X) ->
             lists:foreach(
               fun({VName, Msgs}) ->
                   lists:foreach(
-                    fun(Msg) -> 
+                    fun(Msg) ->
                         ok = dets:insert(Table, {VName, Msg}) end, Msgs)
               end, Lst)
         end;
-      _ -> case is_list(X) of 
-             true -> 
+      _ -> case is_list(X) of
+             true ->
                lists:foreach(
-                 fun(Rec) -> 
+                 fun(Rec) ->
                      dets:insert_new(Table, Rec)
                  end, X);
-             _ -> 
+             _ ->
                ok = dets:insert(Table, X)
            end
     end
   catch
     E1:E2 ->
-      ?DEBUG("Error while inserting into table..", 
+      ?DEBUG("Error while inserting into table..",
              [{table, Table}, {error, E1, E2}]),
       table_insert(Type, Table, X, 120)
   end.
 
 
-transfer_files(Node, {JobId, WId, OWid}, Step) ->  
+transfer_files(Node, {JobId, WId, OWid}, Step) ->
   MyPid = self(),
-  spawn(fun() -> transfer_loop(init, MyPid, Node, 
+  spawn(fun() -> transfer_loop(init, MyPid, Node,
                                {JobId, WId, OWid}, Step) end).
 
 create_receiver(Type, JobId, WId, Mode, Step, Idx) ->
@@ -233,7 +231,7 @@ transfer_loop(init, _MyPid, Node, {JobId, WId, OWid}, Step) ->
     {ok, FList} ->
       lists:foreach(
         fun(FName) ->
-            handle_transfer(file_type(FName), Node, Dir ++ FName, 
+            handle_transfer(file_type(FName), Node, Dir ++ FName,
                             JobId, OWid, Step, WId)
         end, FList);
     _ -> void
@@ -241,7 +239,7 @@ transfer_loop(init, _MyPid, Node, {JobId, WId, OWid}, Step) ->
 
 
 handle_transfer(Type, Node, LocalFName, JobId, OWid, Step, WId) ->
-  WriteFD = 
+  WriteFD =
     rpc:call(Node, worker_store, create_receiver,
              [Type, JobId, OWid, [write, binary], Step, WId]),
   {ok, ReadFD} =
@@ -250,7 +248,7 @@ handle_transfer(Type, Node, LocalFName, JobId, OWid, Step, WId) ->
 
 
 trans_loop(LocalFName, ReadFD, WriteFD) ->
-  %% io:format("~n ~n [~p] [~p] ~n ~n", 
+  %% io:format("~n ~n [~p] [~p] ~n ~n",
   %% [self(), [LocalFName, ReadFD, WriteFD]]),
   case file:read(ReadFD, 16384) of
     {ok, Data} ->
@@ -264,54 +262,53 @@ trans_loop(LocalFName, ReadFD, WriteFD) ->
       receive
         {done, WriteFD} -> done;
         %% TODO : Handle this...
-        {'DOWN', MRef, _, _, _} -> done 
+        {'DOWN', MRef, _, _, _} -> done
       end
   end.
-  
 
 recv_loop({init, Type}, JobId, WId, Mode, Step, Idx) ->
   Table = get_other_worker_table(JobId, WId, Type, Step),
   recv_loop({Type, Table, <<>>, 0}, JobId, WId, Mode, Step, Idx);
 recv_loop({Type, WriteFD, Buffer, RCount}, JobId, WId, Mode, Step, Idx) ->
   receive
-    {data, Data} -> 
+    {data, Data} ->
       %% io:format("~n~n Recvd lines : ~p ~n~n", [BinLines]),
       {VRecs, Rem} = serde:deserialize_stream(Type, Buffer, Data),
       NewRCount = RCount + length(VRecs),
       case RCount > 750 of
-        true -> 
+        true ->
           [{_, WPid}] = ets:lookup(worker_registry, {JobId, WId}),
           ok = gen_fsm:sync_send_all_state_event(WPid, sync_table);
         _ ->
           void
       end,
-      table_insert(Type, WriteFD, VRecs), 
-      recv_loop({Type, WriteFD, Rem, NewRCount}, JobId, WId, Mode, 
+      table_insert(Type, WriteFD, VRecs),
+      recv_loop({Type, WriteFD, Rem, NewRCount}, JobId, WId, Mode,
                 Step, Idx);
     {close, WPid} -> WPid ! {done, self()}
       %% file:close(WriteFD)
   end.
 
 
-wait_table_loop(_Type, _JobId, _OWid, Pid, _Step, 0) -> 
+wait_table_loop(_Type, _JobId, _OWid, Pid, _Step, 0) ->
   Pid ! {error, enoent};
 wait_table_loop(Type, JobId, OWid, Pid, Step, Counter) ->
-  ?DEBUG("Checking for table...", 
+  ?DEBUG("Checking for table...",
          [{job, JobId}, {worker, OWid}, {counter, Counter}]),
   case table_manager:lookup_table(JobId, OWid) of
     {_, Table} ->
       case dets:info(table_name(Table, Type, Step)) of
         undefined ->
-          ?DEBUG("Table unopen... waiting..", 
+          ?DEBUG("Table unopen... waiting..",
                  [{job, JobId}, {worker, OWid}, {counter, Counter}]),
-          timer:sleep(20000), 
+          timer:sleep(20000),
           wait_table_loop(Type, JobId, OWid, Pid, Step, Counter - 1);
         _ ->Pid ! {table, Table}
       end;
-    _ -> 
-      ?DEBUG("Table NOT acquired... waiting..", 
+    _ ->
+      ?DEBUG("Table NOT acquired... waiting..",
              [{job, JobId}, {worker, OWid}, {counter, Counter}]),
-      timer:sleep(20000), 
+      timer:sleep(20000),
       wait_table_loop(Type, JobId, OWid, Pid, Step, Counter - 1)
   end.
 
@@ -319,26 +316,25 @@ wait_table_loop(Type, JobId, OWid, Pid, Step, Counter) ->
 get_other_worker_table(JobId, OWId, Type, Step) ->
   Pid = self(),
   spawn(fun() -> wait_table_loop(Type, JobId, OWId, Pid, Step, 30) end),
-  Table = 
+  Table =
     receive
       {table, T} -> T;
       %% TODO : have to think of something...
       {error, enoent} -> backup_table
     end,
   table_name(Table, Type, Step).
-  
-  
+
 mkdir_p(Loc) ->
-  {_, FinalRetVal} = 
+  {_, FinalRetVal} =
     lists:foldl(
-      fun([], X) -> X; 
-         (DirName, {Finished, _}) -> 
-          Next = 
-            case Finished of 
-              "/" -> "/" ++ DirName; 
-              _ -> Finished ++ "/" ++ DirName 
-            end, 
-          R = file:make_dir(Next), {Next, R} 
+      fun([], X) -> X;
+         (DirName, {Finished, _}) ->
+          Next =
+            case Finished of
+              "/" -> "/" ++ DirName;
+              _ -> Finished ++ "/" ++ DirName
+            end,
+          R = file:make_dir(Next), {Next, R}
       end, {"/", init}, re:split(Loc, "/", [{return, list}])),
   case FinalRetVal of
     ok -> ok;
@@ -352,7 +348,7 @@ mkdir_p(Loc) ->
 is_vfile(F) -> (re:run(F, ".*vertex_data", [anchored]) =/= nomatch).
 is_qfile(F) -> (re:run(F, ".*msg_queue", [anchored]) =/= nomatch).
 
-file_type(F) -> 
+file_type(F) ->
   case is_vfile(F) of
     true -> vertex;
     _ -> case is_qfile(F) of
@@ -376,7 +372,7 @@ rstep_data(msg, JobId, WId, Step, RWId, Idx) ->
 
 
 table_name(Table, Type, Step) ->
-  list_to_atom(atom_to_list(Table) ++ "_" ++ 
+  list_to_atom(atom_to_list(Table) ++ "_" ++
                  atom_to_list(Type) ++ "_" ++
                  integer_to_list(Step)).
 
@@ -388,7 +384,7 @@ table_insert(Type, Table, X, Counter) ->
     _ ->
       table_insert(Type, Table, X)
   end.
-      
+
 %% copy_step_file(JobId, WId, Step, Type) ->
 %%   [{_, Table}] = ets:lookup(table_mapping, {JobId, WId}),
 %%   TName = table_name(Table, Type, Step),
@@ -399,12 +395,12 @@ table_insert(Type, Table, X, Counter) ->
 %%   dets:open_file(TName, [{file, NewTFileName}]).
 
 store_vertex_helper(Table, Buffer, Vertex, WId, FDs) ->
-  NewBuffer = 
+  NewBuffer =
     case length(Buffer) > 9 of
-      true -> 
-        table_insert(vertex, Table, [Vertex|Buffer]), 
+      true ->
+        table_insert(vertex, Table, [Vertex|Buffer]),
         [];
       _ -> [Vertex|Buffer]
     end,
   TempFDs = lists:keydelete(WId, 1, FDs),
-  [{WId, {Table, NewBuffer}}|TempFDs].  
+  [{WId, {Table, NewBuffer}}|TempFDs].

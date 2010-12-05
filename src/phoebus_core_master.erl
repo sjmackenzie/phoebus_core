@@ -13,8 +13,8 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
@@ -28,10 +28,10 @@
 -export([start_link/1]).
 
 %% gen_fsm callbacks
--export([init/1, 
-         vsplit_phase1/2, 
-         vsplit_phase2/2, 
-         vsplit_phase3/2, 
+-export([init/1,
+         vsplit_phase1/2,
+         vsplit_phase2/2,
+         vsplit_phase3/2,
          algo/2,
          post_algo/2,
          check_algo_finish/2,
@@ -40,9 +40,9 @@
          state_name/3, handle_event/3,
          handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
--record(state, {step = 0, max_steps, vertices = 0, 
+-record(state, {step = 0, max_steps, vertices = 0,
                 job_id, job_name, start_time,
-                conf, workers = {[], []}, 
+                conf, workers = {[], []},
                 aggregate_val = none,
                 aggregate_fun = none,
                 algo_sub_state = none}).
@@ -91,24 +91,24 @@ init([Conf]) ->
   {ok, SS} = external_store:init(proplists:get_value(input_dir, Conf)),
   {ok, Partitions, SS2} = external_store:partition_input(SS),
   external_store:destroy(SS2),
-  DefAlgoFun = 
-    fun({VName, _VValStr, EList}, InAgg, _InMsgs) -> 
+  DefAlgoFun =
+    fun({VName, _VValStr, EList}, InAgg, _InMsgs) ->
         {{VName, "done", EList}, [], InAgg, hold}
     end,
   DefCombineFun = none,
   AggVal = proplists:get_value(aggregate_val, Conf, none),
   AggFun = proplists:get_value(aggregate_fun, Conf, none),
   %% DefCombineFun = fun(Msg1, Msg2) -> Msg1 ++ "||" ++ Msg2 end,
-  Workers = start_workers(JobId, {erlang:node(), self()}, 
-                          Partitions, 
+  Workers = start_workers(JobId, {erlang:node(), self()},
+                          Partitions,
                           proplists:get_value(output_dir, Conf),
-                          proplists:get_value(algo_fun, 
+                          proplists:get_value(algo_fun,
                                               Conf, DefAlgoFun),
-                          proplists:get_value(combine_fun, 
+                          proplists:get_value(combine_fun,
                                               Conf, DefCombineFun),
                           AggFun
                          ),
-  {ok, vsplit_phase1, 
+  {ok, vsplit_phase1,
    #state{max_steps = proplists:get_value(max_steps, Conf, 100000),
           job_id = JobId, job_name = JobName, start_time = T,
           aggregate_val = AggVal, aggregate_fun = AggFun,
@@ -134,27 +134,27 @@ init([Conf]) ->
 %% vsplit_phase1 START
 %% Description : Get vertex loading progress from Wrokers
 %% ------------------------------------------------------------------------
-vsplit_phase1({vsplit_phase1_inter, WId, Vertices}, 
-              #state{job_id = JobId, 
+vsplit_phase1({vsplit_phase1_inter, WId, Vertices},
+              #state{job_id = JobId,
                      conf = Conf,
                      vertices = OldVertices} = State) ->
   NewVertices = OldVertices + Vertices,
   ?DEBUG("Vertices Uncovered..", [{job, JobId}, {workers, WId},
-                                  {name, proplists:get_value(name, Conf)}, 
+                                  {name, proplists:get_value(name, Conf)},
                                   {num, NewVertices}]),
   {next_state, vsplit_phase1, State#state{vertices = NewVertices}};
 
-vsplit_phase1({vsplit_phase1_done, WId, Vertices}, 
-              #state{job_id = JobId, 
+vsplit_phase1({vsplit_phase1_done, WId, Vertices},
+              #state{job_id = JobId,
                      conf = Conf,
                      vertices = OldVertices,
                      workers = Workers} = State) ->
   NewVertices = OldVertices + Vertices,
   ?DEBUG("Vertices Uncovered..", [{job, JobId}, {workers, WId},
-                                  {name, proplists:get_value(name, Conf)}, 
+                                  {name, proplists:get_value(name, Conf)},
                                   {num, NewVertices}]),
-  {NewWorkers, NextState} = 
-    update_workers(vsplit_phase1, vsplit_phase2, none, Workers, WId),  
+  {NewWorkers, NextState} =
+    update_workers(vsplit_phase1, vsplit_phase2, none, Workers, WId),
   {next_state, NextState, State#state{workers = NewWorkers}}.
 %% ------------------------------------------------------------------------
 %% vsplit_phase1 DONE
@@ -165,10 +165,10 @@ vsplit_phase1({vsplit_phase1_done, WId, Vertices},
 %% vsplit_phase2 START
 %% Description : Wait for Workers to finish transferring files..
 %% ------------------------------------------------------------------------
-vsplit_phase2({vsplit_phase2_done, WId, _WData}, 
+vsplit_phase2({vsplit_phase2_done, WId, _WData},
               #state{workers = Workers} = State) ->
-  {NewWorkers, NextState} = 
-    update_workers(vsplit_phase2, vsplit_phase3, bla, Workers, WId),  
+  {NewWorkers, NextState} =
+    update_workers(vsplit_phase2, vsplit_phase3, bla, Workers, WId),
   {next_state, NextState, State#state{workers = NewWorkers}}.
 %% ------------------------------------------------------------------------
 %% vsplit_phase2 DONE
@@ -179,40 +179,40 @@ vsplit_phase2({vsplit_phase2_done, WId, _WData},
 %% vsplit_phase3 START
 %% Description : copy vertex data to new dir..
 %% ------------------------------------------------------------------------
-vsplit_phase3({vsplit_phase3_done, WId, _WData}, 
+vsplit_phase3({vsplit_phase3_done, WId, _WData},
               #state{aggregate_val = Agg, workers = Workers} = State) ->
-  {NewWorkers, NextState} = 
-    update_workers(vsplit_phase3, algo, Agg, Workers, WId),  
+  {NewWorkers, NextState} =
+    update_workers(vsplit_phase3, algo, Agg, Workers, WId),
   {next_state, NextState, State#state{workers = NewWorkers}}.
 %% ------------------------------------------------------------------------
 %% vsplit_phase3 DONE
 %% ------------------------------------------------------------------------
 
-algo({algo_done, WId, InterAggregate, NumMsgsActive}, 
-     #state{workers = Workers, 
+algo({algo_done, WId, InterAggregate, NumMsgsActive},
+     #state{workers = Workers,
             aggregate_val = CurrAgg,
             aggregate_fun = AggFun,
             algo_sub_state = AS} = State) ->
   NewAgg = apply_aggregate(AggFun, InterAggregate, CurrAgg),
-  {NewWorkers, NextState} = 
-    update_workers(algo, post_algo, NewAgg, Workers, WId),  
+  {NewWorkers, NextState} =
+    update_workers(algo, post_algo, NewAgg, Workers, WId),
   %% TODO : Compute Incremental Aggregate..
-  NewSubState = 
+  NewSubState =
     case AS of
       none -> #algo_sub_state{num_active = NumMsgsActive};
-      #algo_sub_state{num_active = A} -> 
+      #algo_sub_state{num_active = A} ->
         AS#algo_sub_state{num_active = A + NumMsgsActive}
     end,
   {next_state, NextState, State#state{
-                            workers = NewWorkers, 
+                            workers = NewWorkers,
                             aggregate_val = NewAgg,
                             algo_sub_state = NewSubState}}.
 
 
-post_algo({post_algo_done, WId, _WData}, 
+post_algo({post_algo_done, WId, _WData},
               #state{step = Step, workers = Workers} = State) ->
-  {NewWorkers, NextState} = 
-    update_workers(post_algo, check_algo_finish, Step, Workers, WId),    
+  {NewWorkers, NextState} =
+    update_workers(post_algo, check_algo_finish, Step, Workers, WId),
   case NextState of
     check_algo_finish ->
       {next_state, check_algo_finish, State#state{workers = NewWorkers}, 0};
@@ -221,14 +221,14 @@ post_algo({post_algo_done, WId, _WData},
   end.
 
 
-check_algo_finish(timeout, #state{step = Step, max_steps = MaxSteps, 
+check_algo_finish(timeout, #state{step = Step, max_steps = MaxSteps,
                                   aggregate_val = Agg,
-                                  algo_sub_state = 
+                                  algo_sub_state =
                                     #algo_sub_state{num_active = A},
                                   workers = {Workers, []}} = State) ->
-  {NextState, NextStep} = 
+  {NextState, NextStep} =
     case Step < MaxSteps of
-      true -> 
+      true ->
         case A > 0 of
           true -> {algo, Step + 1};
           _ -> {store_result, Step}
@@ -236,27 +236,27 @@ check_algo_finish(timeout, #state{step = Step, max_steps = MaxSteps,
       _ -> {store_result, Step}
     end,
   NewWorkers = notify_workers2(Workers, NextState, Agg),
-  {next_state, NextState, State#state{workers = {NewWorkers, []}, 
+  {next_state, NextState, State#state{workers = {NewWorkers, []},
                                       algo_sub_state = none,
                                       step = NextStep}}.
 
 
-store_result({store_result_done, WId, _WData}, 
-              #state{workers = Workers} = State) ->  
-  {NewWorkers, NextState} = 
+store_result({store_result_done, WId, _WData},
+              #state{workers = Workers} = State) ->
+  {NewWorkers, NextState} =
     change_state(store_result, end_state, bla, Workers, WId, false),
   case NextState of
     end_state ->
       {next_state, end_state, State#state{workers = NewWorkers}, 0};
     _ ->
       {next_state, NextState, State#state{workers = NewWorkers}}
-  end.  
+  end.
 
-end_state(timeout, #state{job_id = JobId, job_name = JobName, 
+end_state(timeout, #state{job_id = JobId, job_name = JobName,
                           start_time = T, aggregate_val = Agg} = State) ->
   {T2, _} = erlang:statistics(wall_clock),
   io:format("~n### Job Ended : Id[~p] : Name[~p] "
-            ++ ": Aggegate [~p] : Time [~p] ###~n", 
+            ++ ": Aggegate [~p] : Time [~p] ###~n",
             [JobId, JobName, Agg, (T2 - T)]),
   {stop, normal, State}.
 
@@ -334,9 +334,9 @@ handle_sync_event(_Event, _From, StateName, State) ->
 %% handle_info({'DOWN', MRef, _, _, _}, StateName,
 %%             #state{step = Step, algo_sub_state = A,
 %%                    workers = {Workers, []}} = State) ->
-%%   ?DEBUG("Master Down... Shutting Down..", [{state_name, StateName}, 
+%%   ?DEBUG("Master Down... Shutting Down..", [{state_name, StateName},
 %%                                              {job, JobId}, {worker, WId}]),
-%%   {stop, monitor_down, State};  
+%%   {stop, monitor_down, State};
 
 handle_info(_Info, StateName, State) ->
   {next_state, StateName, State}.
@@ -373,25 +373,25 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 update_workers(CurrentState, NextState, EInfo, {Waiting, Finished}, WId) ->
   change_state(CurrentState, NextState, EInfo, {Waiting, Finished}, WId, true).
 
-change_state(CurrentState, NextState, ExtraInfo, 
+change_state(CurrentState, NextState, ExtraInfo,
                {Waiting, Finished}, WId, NotifyWorkers) ->
-  ?DEBUG("Master Recvd Event...", [{current, CurrentState}, 
-                                     {next, NextState}, 
+  ?DEBUG("Master Recvd Event...", [{current, CurrentState},
+                                     {next, NextState},
                                      {workers, {Waiting, Finished}},
                                      {worker, WId}]),
-  {NewWaiting, NewFinished} = 
+  {NewWaiting, NewFinished} =
     lists:foldl(
-      fun({N, W, P, R, _}, {Wait, Done}) when W =:= WId -> 
+      fun({N, W, P, R, _}, {Wait, Done}) when W =:= WId ->
           {Wait, [{N, WId, P, R, NextState}|Done]};
          (WInfo, {Wait, Done}) -> {[WInfo|Wait], Done}
       end, {[], Finished}, Waiting),
-  ?DEBUG("Master New State...", [{current, CurrentState}, 
-                                     {next, NextState}, 
+  ?DEBUG("Master New State...", [{current, CurrentState},
+                                     {next, NextState},
                                      {workers, {NewWaiting, NewFinished}},
                                      {worker, WId}]),
   case NewWaiting of
-    [] -> 
-      ?DEBUG("Master Shifting States...", [{current, CurrentState}, 
+    [] ->
+      ?DEBUG("Master Shifting States...", [{current, CurrentState},
                                              {next, NextState}]),
       case NotifyWorkers of
         true ->
@@ -401,30 +401,29 @@ change_state(CurrentState, NextState, ExtraInfo,
       {{NewFinished, NewWaiting}, NextState};
     _ -> {{NewWaiting, NewFinished}, CurrentState}
   end.
-      
 
 notify_workers(_, check_algo_finish, _) -> void;
 notify_workers(Workers, NextState, ExtraInfo) ->
   lists:foreach(
-    fun({Node, _, WPid, _, _}) -> 
-        rpc:call(Node, gen_fsm, send_event, 
+    fun({Node, _, WPid, _, _}) ->
+        rpc:call(Node, gen_fsm, send_event,
                  [WPid, {goto_state, NextState, ExtraInfo}])
-    end, Workers).  
+    end, Workers).
 
 
 notify_workers2(Workers, NextState, ExtraInfo) ->
   lists:foldl(
-    fun({Node, WId, WPid, R, _}, Ws) -> 
-        rpc:call(Node, gen_fsm, send_event, 
+    fun({Node, WId, WPid, R, _}, Ws) ->
+        rpc:call(Node, gen_fsm, send_event,
                  [WPid, {goto_state, NextState, ExtraInfo}]),
         [{Node, WId, WPid, R, NextState}|Ws]
-    end, [], Workers).  
+    end, [], Workers).
 
 
 name(StrName) ->
-  list_to_atom("master_" ++ StrName). 
+  list_to_atom("master_" ++ StrName).
 
-start_workers(JobId, MasterInfo, Partitions, 
+start_workers(JobId, MasterInfo, Partitions,
               OutputDir, AlgoFun, CombineFun, AggFun) ->
   PartLen = length(Partitions),
   Nodes = phoebus_utils:all_nodes(),
@@ -434,13 +433,13 @@ start_workers(JobId, MasterInfo, Partitions,
         Node = phoebus_utils:map_to_node(JobId, WId, Nodes),
         %% TODO : Make Async
         %% [{Node, wId, wPid, wMonRef}]
-        {ok, WPid} = 
-          rpc:call(Node, phoebus_worker, start_link, 
-                   [{JobId, WId, Nodes}, PartLen, MasterInfo, Part, 
+        {ok, WPid} =
+          rpc:call(Node, phoebus_worker, start_link,
+                   [{JobId, WId, Nodes}, PartLen, MasterInfo, Part,
                     OutputDir, AlgoFun, CombineFun, AggFun]),
         MRef = erlang:monitor(process, WPid),
         [{Node, WId, WPid, MRef, vsplit_phase1}|Workers]
     end, [], Partitions).
 
 apply_aggregate(none, Arg1, _) -> Arg1;
-apply_aggregate(AggFun, Agg1, Agg2) -> AggFun(Agg1, Agg2).   
+apply_aggregate(AggFun, Agg1, Agg2) -> AggFun(Agg1, Agg2).

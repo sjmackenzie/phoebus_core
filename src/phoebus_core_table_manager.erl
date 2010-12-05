@@ -13,8 +13,8 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
@@ -24,14 +24,14 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, acquire_table/2, 
+-export([start_link/1, acquire_table/2,
          release_table/1, lookup_table/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(SERVER, ?MODULE). 
+-define(SERVER, ?MODULE).
 
 %%%===================================================================
 %%% API
@@ -112,7 +112,7 @@ handle_call({acquire, JobId, WId}, {Pid, _} = From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({release, Table}, State) ->
   case State of
-    [] -> 
+    [] ->
       case ets:lookup(table_pool, Table) of
         [{Table, CInfo, MRef}] ->
           erlang:demonitor(MRef),
@@ -121,7 +121,7 @@ handle_cast({release, Table}, State) ->
         _ -> void
       end,
       {noreply, []};
-    _ -> 
+    _ ->
       [{From, CInfo, MRef}|Rest] = lists:reverse(State),
       ets:insert(table_pool, {Table, CInfo, MRef}),
       gen_server:reply(From, Table),
@@ -192,4 +192,3 @@ lookup_table(JobId, WId) ->
     [{_, T}] -> {table, T};
     _ -> none
   end.
-      

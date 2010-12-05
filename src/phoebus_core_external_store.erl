@@ -13,8 +13,8 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
@@ -46,8 +46,8 @@ behaviour_info(_Other) ->
 %%%===================================================================
 %%% API
 %%%===================================================================
-init(URI) ->  
-  RegisteredStores = 
+init(URI) ->
+  RegisteredStores =
     phoebus_utils:get_env(registered_stores, ["file", "hdfs"]),
   {StoreMod, State} =
     lists:foldl(
@@ -60,7 +60,7 @@ init(URI) ->
           end
       end, {0, []}, RegisteredStores),
   case StoreMod of
-    0 -> 
+    0 ->
       ?ERROR("No registered store for URI", [{uri, URI}]),
       {error, enostores};
     _ -> {ok, State}
@@ -84,7 +84,7 @@ store_vertices(StoreState, Vertices) ->
 destroy(StoreState) ->
   Mod = proplists:get_value(store_module, StoreState),
   Mod:destroy(StoreState).
-  
+
 
 %%--------------------------------------------------------------------
 %% @doc

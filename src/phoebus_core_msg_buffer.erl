@@ -13,8 +13,8 @@
 %%
 %% Unless required by applicable law or agreed to in writing,
 %% software distributed under the License is distributed on an
-%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY 
-%% KIND, either express or implied.  See the License for the 
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
 %% under the License.
 %%
@@ -24,18 +24,18 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, start_link/4, insert/2, 
+-export([start_link/2, start_link/4, insert/2,
          merge/1, merge_file/4, do_merge/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(FNAME, "out_msgs_"). 
--define(MERGE_FNAME, "msg_queue_"). 
--define(BUFFER_SIZE(), phoebus_utils:get_env(msg_buffer_size, 1000)). 
+-define(FNAME, "out_msgs_").
+-define(MERGE_FNAME, "msg_queue_").
+-define(BUFFER_SIZE(), phoebus_utils:get_env(msg_buffer_size, 1000)).
 
--record(state, {base_dir, index = 0, records, combine_fun, 
+-record(state, {base_dir, index = 0, records, combine_fun,
                 return_pid, log_file}).
 
 %%%===================================================================
@@ -49,7 +49,6 @@ merge(MBuffPid) ->
 
 merge_file(FName, RetPid, CombineFun, Dir) ->
   start_link(FName, RetPid, CombineFun, Dir).
-  
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -82,12 +81,12 @@ start_link(BaseDir, CombineFun) ->
 init([FName, RetPid, CombineFun, Dir]) ->
   worker_store:mkdir_p(Dir),
   {ok, FD} = file:open(FName, [raw, read_ahead, binary]),
-  {ok, #state{base_dir = Dir, combine_fun = CombineFun, 
+  {ok, #state{base_dir = Dir, combine_fun = CombineFun,
               return_pid = RetPid, log_file = {FName, FD},
               records = gb_sets:new()}, 0};
 init([BaseDir, CombineFun]) ->
   worker_store:mkdir_p(BaseDir),
-  {ok, #state{base_dir = BaseDir, combine_fun = CombineFun, 
+  {ok, #state{base_dir = BaseDir, combine_fun = CombineFun,
               records = gb_sets:new()}}.
 
 %%--------------------------------------------------------------------
@@ -118,7 +117,7 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(merge_files, #state{index = I, base_dir = BD, 
+handle_cast(merge_files, #state{index = I, base_dir = BD,
                                 return_pid = RetPid,
                                 combine_fun = C} = State) ->
   flush_buffer(State),
@@ -131,31 +130,31 @@ handle_cast(merge_files, #state{index = I, base_dir = BD,
 
 handle_cast({insert, VName, Msg}, #state{index = I, records = R} = State) ->
   case (gb_sets:size(R) > ?BUFFER_SIZE()) of
-    true -> 
+    true ->
       flush_buffer(State),
-      {noreply, State#state{index = I + 1, 
+      {noreply, State#state{index = I + 1,
                             records = ins({VName, Msg}, gb_sets:new())}};
-    _ -> 
+    _ ->
       {noreply, State#state{records = ins({VName, Msg}, R)}}
   end;
 
-handle_cast({records, IsDone, Msgs}, 
+handle_cast({records, IsDone, Msgs},
             #state{index = I, records = R} = State) ->
-  NewState = 
+  NewState =
     case (gb_sets:size(R) > ?BUFFER_SIZE()) of
-      true -> 
+      true ->
         flush_buffer(State),
         State#state{index = I + 1, records = ins(Msgs, gb_sets:new())};
-      _ -> 
+      _ ->
         State#state{records = ins(Msgs, R)}
     end,
   case IsDone of
     false -> {noreply, NewState, 0};
-    _ -> 
+    _ ->
       gen_server:cast(self(), merge_files),
       {noreply, NewState}
   end.
-         
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -209,12 +208,12 @@ read_log_loop(FD, Count, Recs) ->
     {ok, Data} ->
       R = serde:deserialize_rec(msg, Data),
       read_log_loop(FD, Count - 1, [R|Recs]);
-    eof -> 
+    eof ->
       file:close(FD),
       {true, Recs}
-  end.  
+  end.
 
-flush_buffer(#state{base_dir = BD, index = I, 
+flush_buffer(#state{base_dir = BD, index = I,
                     combine_fun = C, records = R}) ->
   %% io:format("~n~n HERE 1 ~n~n", []),
   FName = BD ++ ?FNAME ++ integer_to_list(I),
@@ -224,16 +223,16 @@ flush_buffer(#state{base_dir = BD, index = I,
   {LastVName, LVMsgs} =
     lists:foldl(
       fun({VName, Msg}, {start, Buffer}) -> {VName, [Msg|Buffer]};
-         ({NewVName, Msg}, {VName, Buffer}) when VName =:= NewVName -> 
+         ({NewVName, Msg}, {VName, Buffer}) when VName =:= NewVName ->
           {VName, [Msg|Buffer]};
-         ({NewVName, Msg}, {VName, Buffer}) -> 
+         ({NewVName, Msg}, {VName, Buffer}) ->
           file:write(FD, serde:serialize_rec(
                            msg, {VName, apply_combine(C, Buffer)})),
           {NewVName, [Msg]}
       end, {start, []}, gb_sets:to_list(R)),
   case LastVName of
     start -> void;
-    _ -> 
+    _ ->
       file:write(FD, serde:serialize_rec(
                        msg, {LastVName, apply_combine(C, LVMsgs)}))
   end,
@@ -242,7 +241,6 @@ flush_buffer(#state{base_dir = BD, index = I,
     4 -> do_merge(BD, C);
     _ -> void
   end.
-      
 
 do_merge(BD, CombineFun) ->
   {ok, FList} = file:list_dir(BD),
@@ -257,23 +255,23 @@ wait_on({_, LPid} = LInfo, {_, RPid} = RInfo) ->
   end.
 
 
-do_merge(Idx, CombineFun, RootPid, BD, Lst) ->          
+do_merge(Idx, CombineFun, RootPid, BD, Lst) ->
   MyPid = self(),
   RetFName = BD ++ ?MERGE_FNAME ++ integer_to_list(Idx),
   case Lst of
-    [SingleFile] -> 
+    [SingleFile] ->
       SrcFName = BD ++ SingleFile,
       os:cmd("mv " ++ SrcFName ++ " " ++ RetFName),
       RootPid ! {MyPid, RetFName};
     Lst ->
       {Left, Right} = lists:split(length(Lst) div 2, Lst),
-      LPid = 
-        spawn(fun() -> 
+      LPid =
+        spawn(fun() ->
                   do_merge((Idx * 2) + 1, CombineFun, MyPid, BD, Left) end),
-      RPid = 
-        spawn(fun() -> 
+      RPid =
+        spawn(fun() ->
                   do_merge((Idx * 2) + 2, CombineFun, MyPid, BD, Right) end),
-      {LFile, RFile} = wait_on({wait, LPid}, {wait, RPid}),      
+      {LFile, RFile} = wait_on({wait, LPid}, {wait, RPid}),
       {ok, WriteFD} = file:open(RetFName, [write, binary]),
       {ok, LReadFD} = file:open(LFile, [raw, read_ahead, binary]),
       {ok, RReadFD} = file:open(RFile, [raw, read_ahead, binary]),
@@ -304,7 +302,7 @@ merge_files(WriteFD, CombineFun, {start, LReadFD}, {RLine, RReadFD}) ->
       merge_files(WriteFD, CombineFun, {LLine, LReadFD}, {RLine, RReadFD})
   end;
 merge_files(WriteFD, CombineFun, {LLine, LReadFD}, {RLine, RReadFD}) ->
-  {RVName, RMsgs} = 
+  {RVName, RMsgs} =
     case is_binary(RLine) of
       true -> serde:deserialize_rec(msg, RLine);
       _ -> RLine
@@ -315,29 +313,29 @@ merge_files(WriteFD, CombineFun, {LLine, LReadFD}, {RLine, RReadFD}) ->
       _ -> LLine
     end,
   case RVName of
-    LVName -> 
+    LVName ->
       NMsgs = apply_combine(CombineFun, LMsgs ++ RMsgs),
-      merge_files(WriteFD, CombineFun, {start, LReadFD}, 
+      merge_files(WriteFD, CombineFun, {start, LReadFD},
                   {{RVName, NMsgs}, RReadFD});
     _ ->
       case (LVName < RVName) of
         true ->
-          file:write(WriteFD, 
+          file:write(WriteFD,
                      serde:serialize_rec(msg, {LVName, LMsgs})),
           merge_files(WriteFD, CombineFun, {start, LReadFD},
                       {{RVName, RMsgs}, RReadFD});
         _ ->
-          file:write(WriteFD, 
+          file:write(WriteFD,
                      serde:serialize_rec(msg, {RVName, RMsgs})),
           merge_files(WriteFD, CombineFun, {{LVName, LMsgs}, LReadFD},
                       {start, RReadFD})
       end
   end.
-                     
-dump_rest(Line, ReadFD, WriteFD) ->  
+
+dump_rest(Line, ReadFD, WriteFD) ->
   case is_binary(Line) of
     true -> file:write(WriteFD, binary_to_list(Line));
-    _ -> 
+    _ ->
       file:write(WriteFD, serde:serialize_rec(msg, Line))
   end,
   loop_write(ReadFD, WriteFD).
@@ -352,18 +350,14 @@ loop_write(ReadFD, WriteFD) ->
       file:write(WriteFD, binary_to_list(Data)),
       loop_write(ReadFD, WriteFD)
   end.
-                       
-            
+
 ins(Recs, R) when is_list(Recs) ->
-  lists:foldl(fun(Rec, S) -> ins(Rec, S) end, R, Recs);  
+  lists:foldl(fun(Rec, S) -> ins(Rec, S) end, R, Recs);
 ins(Rec, R) ->
   try gb_sets:insert(Rec, R) catch _:_ -> R end.
-    
 
 apply_combine(none, Msgs) -> Msgs;
 apply_combine(_, [_] = Msgs) -> Msgs;
 apply_combine(F, [M|Rest]) ->
   X = lists:foldl(fun(Msg, Acc) -> F(Msg, Acc) end, M, Rest),
   [X].
-  
-  

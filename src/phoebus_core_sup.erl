@@ -1,3 +1,4 @@
+
 %% -------------------------------------------------------------------
 %%
 %% Phoebus: A distributed framework for large scale graph processing.
@@ -65,12 +66,12 @@ start_link() ->
 init([]) ->
 
   TableManager =
-    {table_manager
-     , {table_manager, start_link, [100]}
+    {phoebus_core_table_manager
+     , {phoebus_core_table_manager, start_link, [100]}
      , permanent
      , 5000
      , worker
-     , [table_manager]},
+     , [phoebus_core_table_manager]},
   VMaster =
     {phoebus_core_vnode_master
      ,{riak_core_vnode_master, start_link,[phoebus_core_vnode]}

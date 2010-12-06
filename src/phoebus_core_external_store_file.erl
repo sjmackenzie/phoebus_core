@@ -36,7 +36,7 @@
 %%% API
 %%%===================================================================
 init([$f, $i, $l, $e, $:, $/, $/ | AbsPath] = URI) ->
-  IsDir = external_store:check_dir(URI),
+  IsDir = phoebus_core_external_store:check_dir(URI),
   {true, [{uri, URI}, {abs_path, AbsPath}, {type, file}, {is_dir, IsDir}]};
 init(_) -> {false, []}.
 
@@ -76,7 +76,7 @@ store_vertices(State, Vertices) ->
         end,
       lists:foreach(
         fun(V) ->
-            file:write(FD, serde:serialize_rec(vertex, V)) end, Vertices),
+            file:write(FD, phoebus_core_serde:serialize_rec(vertex, V)) end, Vertices),
       NewState;
     _ ->
       ?ERROR("URI is a directory", [{uri, proplists:get_value(uri, State)}]),
@@ -119,7 +119,7 @@ reader_loop({init, File}, Pid, {StoreState, X, Y}) ->
 reader_loop(FD, Pid, {State, Rem, Buffer}) ->
   case file:read(FD, 16384) of
     {ok, Data} ->
-      {Vs, NewRem} = serde:deserialize_stream(vertex, Rem, Data),
+      {Vs, NewRem} = phoebus_core_serde:deserialize_stream(vertex, Rem, Data),
       NewBuffer = Vs ++ Buffer,
       case length(NewBuffer) > 100 of
         true ->

@@ -85,7 +85,7 @@ init_step_file(Type, JobId, WId, {table, Table}, Step, Idx) ->
   end;
 init_step_file(Type, JobId, WId, _Mode, Step, Idx) ->
   ok = mkdir_p(?STEP_DIR(JobId, WId, Step)),
-  {table, Table} = table_manager:lookup_table(JobId, WId),
+  {table, Table} = phoebus_core_table_manager:lookup_table(JobId, WId),
   init_step_file(Type, JobId, WId, {table, Table}, Step, Idx).
 
 init_rstep_file(Type, JobId, WId, RWId, Mode, Step) ->
@@ -125,7 +125,7 @@ commit_step(JobId, WId, Step) ->
   {ok, FD} = file:open(?LAST_STEP_FILE(JobId, WId), [write]),
   file:write(FD, integer_to_list(Step)),
   file:close(FD),
-  {_, Table} = table_manager:lookup_table(JobId, WId),
+  {_, Table} = phoebus_core_table_manager:lookup_table(JobId, WId),
   dets:close(table_name(Table, vertex, Step)),
   dets:close(table_name(Table, flag, Step)),
   dets:close(table_name(Table, msg, Step)),
@@ -136,7 +136,7 @@ commit_step(JobId, WId, Step) ->
 
 
 load_active_vertices(JobId, WId) ->
-  {_, Table} = table_manager:lookup_table(JobId, WId),
+  {_, Table} = phoebus_core_table_manager:lookup_table(JobId, WId),
   ActiveVerts =
     dets:select(table_name(Table, vertex, 0),
                [{{'$1', '_', '_'}, [], ['$$']}]),
@@ -158,7 +158,7 @@ store_vertex(Vertex, {_, {JobId, MyWId, WId}}, Step, FDs)
     end,
   store_vertex_helper(Table, Buffer, Vertex, WId, FDs);
 store_vertex(Vertex, {_Node, {JobId, MyWId, WId}}, Step, FDs) ->
-  VRec = serde:serialize_rec(vertex, Vertex),
+  VRec = phoebus_core_serde:serialize_rec(vertex, Vertex),
   {ok, FD} =
     case proplists:get_value(WId, FDs) of
       undefined ->
@@ -240,7 +240,7 @@ transfer_loop(init, _MyPid, Node, {JobId, WId, OWid}, Step) ->
 
 handle_transfer(Type, Node, LocalFName, JobId, OWid, Step, WId) ->
   WriteFD =
-    rpc:call(Node, worker_store, create_receiver,
+    rpc:call(Node, phoebus_core_worker_store, create_receiver,
              [Type, JobId, OWid, [write, binary], Step, WId]),
   {ok, ReadFD} =
     file:open(LocalFName, [read, binary]),
@@ -273,7 +273,7 @@ recv_loop({Type, WriteFD, Buffer, RCount}, JobId, WId, Mode, Step, Idx) ->
   receive
     {data, Data} ->
       %% io:format("~n~n Recvd lines : ~p ~n~n", [BinLines]),
-      {VRecs, Rem} = serde:deserialize_stream(Type, Buffer, Data),
+      {VRecs, Rem} = phoebus_core_serde:deserialize_stream(Type, Buffer, Data),
       NewRCount = RCount + length(VRecs),
       case RCount > 750 of
         true ->
@@ -295,7 +295,7 @@ wait_table_loop(_Type, _JobId, _OWid, Pid, _Step, 0) ->
 wait_table_loop(Type, JobId, OWid, Pid, Step, Counter) ->
   ?DEBUG("Checking for table...",
          [{job, JobId}, {worker, OWid}, {counter, Counter}]),
-  case table_manager:lookup_table(JobId, OWid) of
+  case phoebus_core_table_manager:lookup_table(JobId, OWid) of
     {_, Table} ->
       case dets:info(table_name(Table, Type, Step)) of
         undefined ->

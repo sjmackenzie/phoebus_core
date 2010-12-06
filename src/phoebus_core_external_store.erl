@@ -48,7 +48,7 @@ behaviour_info(_Other) ->
 %%%===================================================================
 init(URI) ->
   RegisteredStores =
-    phoebus_utils:get_env(registered_stores, ["file", "hdfs"]),
+    phoebus_core_utils:get_env(registered_stores, ["file", "hdfs"]),
   {StoreMod, State} =
     lists:foldl(
       fun(_, {SMod, _} = ModInfo) when is_atom(SMod) -> ModInfo;

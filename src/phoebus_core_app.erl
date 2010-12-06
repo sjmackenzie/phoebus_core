@@ -68,7 +68,7 @@ start(_StartType, _StartArgs) ->
   case phoebus_core_sup:start_link() of
     {ok, Pid} ->
       riak_core:register_vnode_module(phoebus_core_vnode),
-
+      riak_core_node_watcher:service_up(riak_core, self()),
       {ok, Pid};
     Error ->
       Error
@@ -91,8 +91,8 @@ stop(_State) ->
 %%% Internal functions
 %%%===================================================================
 get_log_base() ->
-  BaseDir = phoebus_utils:get_env(log_base, "/tmp/phoebus_logs/"),
-  worker_store:mkdir_p(BaseDir),
+  BaseDir = phoebus_core_utils:get_env(log_base, "/tmp/phoebus_logs/"),
+  phoebus_core_worker_store:mkdir_p(BaseDir),
   case lists:last(BaseDir) of
     $/ -> BaseDir;
     _ -> BaseDir ++ "/"

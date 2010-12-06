@@ -37,11 +37,11 @@
 %%% API
 %%%===================================================================
 init([$h, $d, $f, $s, $:, $/, $/ | Rest] = URI) ->
-  IsDir = external_store:check_dir(URI),
+  IsDir = phoebus_core_external_store:check_dir(URI),
   {ok, TFactory} =
     thrift_socket_transport:new_transport_factory(
-      phoebus_utils:get_env(thriftfs_hostname, "localhost"),
-      phoebus_utils:get_env(thriftfs_port, 8899), []),
+      phoebus_core_utils:get_env(thriftfs_hostname, "localhost"),
+      phoebus_core_utils:get_env(thriftfs_port, 8899), []),
   {ok, PFactory} =
     thrift_binary_protocol:new_protocol_factory(TFactory, []),
   {ok, Protocol} = PFactory(),
@@ -110,7 +110,7 @@ store_vertices(State, Vertices) ->
       lists:foreach(
         fun(V) ->
             thrift_client:call(TC, write,
-                               [TH, serde:serialize_rec(vertex, V)])
+                               [TH, pheobus_core_serde:serialize_rec(vertex, V)])
         end, Vertices),
       NewState;
     _ ->
@@ -168,10 +168,10 @@ reader_loop({init, AbsPath}, Pid, {StoreState, X, Y}) ->
     [{thrift_handle, THandle} | StoreState],
   reader_loop({Client, THandle, 0}, Pid, {NewSState, X, Y});
 reader_loop({Client, THandle, OffSet}, Pid, {StoreState, Rem, Buffer}) ->
-  ByteSize = phoebus_utils:get_env(hdfs_read_size, 16384),
+  ByteSize = phoebus_core_utils:get_env(hdfs_read_size, 16384),
   {_, {ok, Data}} =
     thrift_client:call(Client, read, [THandle, OffSet, ByteSize]),
-  {Vs, NewRem} = serde:deserialize_stream(vertex, Rem, Data),
+  {Vs, NewRem} = phoebus_core_serde:deserialize_stream(vertex, Rem, Data),
   NewBuffer = Vs ++ Buffer,
   case size(Data) < ByteSize of
     true ->

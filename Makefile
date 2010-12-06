@@ -3,7 +3,7 @@
 all: deps
 	@rebar compile
 
-build:
+compile:
 	@rebar compile
 
 distclean: clean
@@ -14,3 +14,6 @@ deps:
 
 clean:
 	@rebar clean
+
+dialyzer: compile
+	@dialyzer -Wno_return -c apps/phoebus_core/ebin

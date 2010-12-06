@@ -84,13 +84,13 @@ start_link(Conf) ->
 %% @end
 %%--------------------------------------------------------------------
 init([Conf]) ->
-  JobId = phoebus_utils:job_id(),
+  JobId = phoebus_core_utils:job_id(),
   JobName = proplists:get_value(name, Conf),
   {T, _} = erlang:statistics(wall_clock),
   io:format("~n### Starting Job : Id[~p] : Name[~p] ###~n", [JobId, JobName]),
-  {ok, SS} = external_store:init(proplists:get_value(input_dir, Conf)),
-  {ok, Partitions, SS2} = external_store:partition_input(SS),
-  external_store:destroy(SS2),
+  {ok, SS} = phoebus_core_external_stor:init(proplists:get_value(input_dir, Conf)),
+  {ok, Partitions, SS2} = phoebus_core_external_store:partition_input(SS),
+  phoebus_core_external_store:destroy(SS2),
   DefAlgoFun =
     fun({VName, _VValStr, EList}, InAgg, _InMsgs) ->
         {{VName, "done", EList}, [], InAgg, hold}
@@ -426,15 +426,15 @@ name(StrName) ->
 start_workers(JobId, MasterInfo, Partitions,
               OutputDir, AlgoFun, CombineFun, AggFun) ->
   PartLen = length(Partitions),
-  Nodes = phoebus_utils:all_nodes(),
+  Nodes = phoebus_core_utils:all_nodes(),
   lists:foldl(
     fun(Part, Workers) ->
         WId = length(Workers) + 1,
-        Node = phoebus_utils:map_to_node(JobId, WId, Nodes),
+        Node = phoebus_core_utils:map_to_node(JobId, WId, Nodes),
         %% TODO : Make Async
         %% [{Node, wId, wPid, wMonRef}]
         {ok, WPid} =
-          rpc:call(Node, phoebus_worker, start_link,
+          rpc:call(Node, phoebus_core_worker, start_link,
                    [{JobId, WId, Nodes}, PartLen, MasterInfo, Part,
                     OutputDir, AlgoFun, CombineFun, AggFun]),
         MRef = erlang:monitor(process, WPid),

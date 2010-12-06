@@ -40,10 +40,10 @@
          state_name/3, handle_event/3,
          handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
--define(SOURCE_TIMEOUT(), phoebus_utils:get_env(source_timeout, 120000)).
--define(MASTER_TIMEOUT(), phoebus_utils:get_env(master_timeout, 300000)).
+-define(SOURCE_TIMEOUT(), phoebus_core_utils:get_env(source_timeout, 120000)).
+-define(MASTER_TIMEOUT(), phoebus_core_utils:get_env(master_timeout, 300000)).
 -define(STORE(Type, Table, Rec),
-        worker_store:table_insert(Type, Table, Rec)).
+        phoebus_core_worker_store:table_insert(Type, Table, Rec)).
 
 
 -record(state, {worker_info, num_workers, part_file,
@@ -96,7 +96,7 @@ init([{JobId, WId, Nodes}, NumWorkers,
   ets:insert(all_nodes, {JobId, Nodes}),
   Table = acquire_table(JobId, WId),
   register_worker(JobId, WId),
-  {last_step, LastStep} = worker_store:init(JobId, WId),
+  {last_step, LastStep} = phoebus_core_worker_store:init(JobId, WId),
   {WorkerState, Step, Timeout} =
     case (LastStep < 0) of
       true -> {vsplit_phase1, 0, 0};
@@ -141,8 +141,8 @@ vsplit_phase1(timeout, #state{worker_info = {JobId, WId},
                               part_file = Partition} = State) ->
   ?DEBUG("Worker In State.. ", [{state, vsplit_phase1}, {job, JobId},
                                 {worker, WId}]),
-  {ok, SS} = external_store:init(Partition),
-  {ok, RefPid, SS2} = external_store:read_vertices(SS),
+  {ok, SS} = phoebus_core_external_store:init(Partition),
+  {ok, RefPid, SS2} = phoebus_core_external_store:read_vertices(SS),
   %% notify_master({MNode, MPid}, {vsplit_phase1_done, WId, 0}),
   {next_state, vsplit_phase1,
    State#state{sub_state = {reading_partition, {RefPid, SS2, []}}}};
@@ -170,7 +170,7 @@ vsplit_phase1({vertices, Vertices, RefPid, SS},
   NewFDs = handle_vertices(NumWorkers, WInfo, Vertices, 0, FDs),
   notify_master({MNode, MPid}, {vsplit_phase1_inter, WId,
                                 length(Vertices)}),
-  worker_store:sync_table(Table, vertex, 0, false),
+  phoebus_core_worker_store:sync_table(Table, vertex, 0, false),
   {next_state, vsplit_phase1,
    State#state{sub_state = {reading_partition, {RefPid, SS, NewFDs}}},
    ?SOURCE_TIMEOUT()};
@@ -189,10 +189,10 @@ vsplit_phase1({vertices_done, Vertices, RefPid, SS},
                                 {job, JobId},
                                 {worker, WId}]),
   NewFDs = handle_vertices(NumWorkers, WInfo, Vertices, 0, FDs),
-  external_store:destroy(SS),
-  worker_store:sync_table(Table, vertex, 0, true),
+  phoebus_core_external_store:destroy(SS),
+  phoebus_core_worker_store:sync_table(Table, vertex, 0, true),
   lists:foreach(
-    fun({_, FD}) -> worker_store:close_step_file(vertex, FD) end, NewFDs),
+    fun({_, FD}) -> phoebus_core_worker_store:close_step_file(vertex, FD) end, NewFDs),
   notify_master({MNode, MPid}, {vsplit_phase1_inter, WId,
                                 length(Vertices)}),
   notify_master({MNode, MPid}, {vsplit_phase1_done, WId, 0}),
@@ -223,7 +223,7 @@ vsplit_phase3(timeout, #state{master_info = {MNode, MPid, _},
                               worker_info = {JobId, WId},
                               sub_state = none} = State) ->
   ?DEBUG("Worker In State.. ", [{state, vsplit_phase3}, {worker, WId}]),
-  worker_store:load_active_vertices(JobId, WId),
+  phoebus_core_worker_store:load_active_vertices(JobId, WId),
   notify_master({MNode, MPid}, {vsplit_phase3_done, WId, 0}),
   {next_state, await_master,
    State#state{sub_state = {step_to_be_committed, 0}}, ?MASTER_TIMEOUT()}.
@@ -254,15 +254,15 @@ algo(timeout, #state{master_info = {MNode, MPid, _},
   %% Feed previous step data into Compute fun
   %% Store new stuff in current step file..
   {ok, PrevFTable} =
-    worker_store:init_step_file(flag, JobId, WId, [read], OldStep),
+    phoebus_core_worker_store:init_step_file(flag, JobId, WId, [read], OldStep),
 
   NumActive = get_num_active(PrevFTable),
   {ok, PrevMTable} =
-    worker_store:init_step_file(msg, JobId, WId, [read], OldStep),
+    phoebus_core_worker_store:init_step_file(msg, JobId, WId, [read], OldStep),
 
-  worker_store:init_step_file(vertex, JobId, WId, [write], NewStep),
-  worker_store:init_step_file(flag, JobId, WId, [write], NewStep),
-  worker_store:init_step_file(msg, JobId, WId, [write], NewStep),
+  phoebus_core_worker_store:init_step_file(vertex, JobId, WId, [write], NewStep),
+  phoebus_core_worker_store:init_step_file(flag, JobId, WId, [write], NewStep),
+  phoebus_core_worker_store:init_step_file(msg, JobId, WId, [write], NewStep),
   NumMessages =
     dets:info(PrevMTable, size),
   {BuffPids, NewAggregate} =
@@ -363,13 +363,13 @@ store_result(timeout, #state{master_info = {MNode, MPid, _},
                              worker_info = {JobId, WId}} = State) ->
   ?DEBUG("Worker In State.. ", [{state, post_algo}, {job, JobId},
                                 {worker, WId}, {output_dir, OutputDir}]),
-  {ok, SS} = external_store:init(OutputDir ++ "part-"
+  {ok, SS} = phoebus_core_external_store:init(OutputDir ++ "part-"
                              ++ integer_to_list(WId)),
   {ok, VTable} =
-    worker_store:init_step_file(vertex, JobId, WId, [read], Step),
+    phoebus_core_worker_store:init_step_file(vertex, JobId, WId, [read], Step),
   SS2 = store_result_loop(SS, VTable, start),
   %% release_table(Table, JobId, WId),
-  external_store:destroy(SS2),
+  phoebus_core_external_store:destroy(SS2),
   notify_master({MNode, MPid}, {store_result_done, WId, 0}),
   {next_state, await_master, State}.
 %% ------------------------------------------------------------------------
@@ -396,7 +396,7 @@ await_master({goto_state, NState, Aggregate},
   NewStep =
     case SubState of
       {step_to_be_committed, Step} ->
-        worker_store:commit_step(JobId, WId, Step),
+        phoebus_core_worker_store:commit_step(JobId, WId, Step),
         Step;
       _ -> CurrentStep
     end,
@@ -444,7 +444,7 @@ state_name(_Event, _From, State) ->
 %%--------------------------------------------------------------------
 handle_event(sync_table, StateName, #state{table = Table,
                                            step = Step} = State) ->
-  worker_store:sync_table(Table, vertex, Step, false),
+  phoebus_core_worker_store:sync_table(Table, vertex, Step, false),
   {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
@@ -465,8 +465,8 @@ handle_event(sync_table, StateName, #state{table = Table,
 %%--------------------------------------------------------------------
 handle_sync_event(sync_table, _From, StateName, #state{table = Table,
                                                        step = Step} = State) ->
-  worker_store:sync_table(Table, vertex, Step, true),
-  worker_store:sync_table(Table, msg, Step, true),
+  phoebus_core_worker_store:sync_table(Table, vertex, Step, true),
+  phoebus_core_worker_store:sync_table(Table, msg, Step, true),
   {reply, ok, StateName, State};
 handle_sync_event(_Event, _From, StateName, State) ->
   Reply = ok,
@@ -531,14 +531,14 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 store_result_loop(RWState, VTable, start) ->
   case dets:select(VTable, [{{'$1', '$2', '$3'}, [], ['$_']}], 5) of
     {Sel, Cont} ->
-      NewRWState = external_store:store_vertices(RWState,Sel),
+      NewRWState = phoebus_core_external_store:store_vertices(RWState,Sel),
       store_result_loop(NewRWState, VTable, Cont);
     '$end_of_table' -> RWState
   end;
 store_result_loop(RWState, VTable, Cont) ->
   case dets:select(Cont) of
     {Sel, Cont2} ->
-      NewRWState = external_store:store_vertices(RWState,Sel),
+      NewRWState = phoebus_core_external_store:store_vertices(RWState,Sel),
       store_result_loop(NewRWState, VTable, Cont2);
     '$end_of_table' -> RWState
   end.
@@ -546,12 +546,12 @@ store_result_loop(RWState, VTable, Cont) ->
 handle_vertices(NumWorkers, {JobId, MyWId}, Vertices, Step, FDs) ->
   lists:foldl(
     fun({VName, _, _} = Vertex, OldFDs) ->
-        {Node, WId} = phoebus_utils:vertex_owner(JobId, VName, NumWorkers),
+        {Node, WId} = phoebus_core_utils:vertex_owner(JobId, VName, NumWorkers),
         %% case VName of
         %%   "160" -> io:format("~n~n [~p] : [~p] ~n~n", [MyWId, WId]);
         %%   _ -> void
         %% end,
-        worker_store:store_vertex(Vertex, {Node, {JobId, MyWId, WId}},
+        phoebus_core_worker_store:store_vertex(Vertex, {Node, {JobId, MyWId, WId}},
                                   Step, OldFDs)
     end, FDs, Vertices).
 
@@ -560,8 +560,8 @@ transfer_files(NumWorkers, {JobId, WId}, Step) ->
     lists:foldl(
       fun(W, Pids) when W =:= WId -> Pids;
          (OWid, MRefs) ->
-          Node = phoebus_utils:map_to_node(JobId, OWid),
-          Pid = worker_store:transfer_files(Node, {JobId, WId, OWid}, Step),
+          Node = phoebus_core_utils:map_to_node(JobId, OWid),
+          Pid = phoebus_core_worker_store:transfer_files(Node, {JobId, WId, OWid}, Step),
           MRef = erlang:monitor(process, Pid),
           [MRef|MRefs]
       end, [], lists:seq(1, NumWorkers)),
@@ -581,13 +581,13 @@ notify_master({MNode, MPid}, Notification) ->
 
 %% TODO : have to implemnt.. using a table manager..
 acquire_table(JobId, WId) ->
-  Table = table_manager:acquire_table(JobId, WId),
+  Table = phoebus_core_table_manager:acquire_table(JobId, WId),
   io:format("~n Worker [~p] Acquired Table [~p] .. ~n", [WId, Table]),
   %% Vtable = Worker_store:table_name(Table, vertex),
   %% MTable = worker_store:table_name(Table, msg),
-  worker_store:init_step_file(vertex, JobId, WId, {table, Table}, 0),
-  worker_store:init_step_file(flag, JobId, WId, {table, Table}, 0),
-  worker_store:init_step_file(msg, JobId, WId, {table, Table}, 0),
+  phoebus_core_worker_store:init_step_file(vertex, JobId, WId, {table, Table}, 0),
+  phoebus_core_worker_store:init_step_file(flag, JobId, WId, {table, Table}, 0),
+  phoebus_core_worker_store:init_step_file(msg, JobId, WId, {table, Table}, 0),
   ets:insert(table_mapping, {{JobId, WId}, Table}),
   Table.
 
@@ -597,12 +597,12 @@ register_worker(JobId, WId) ->
 
 run_algo({JobId, WId, NumWorkers},
          {IterType, Table}, AlgoFun, CombineFun, {Aggregate, AggFun}, Step) ->
-  worker_store:sync_table(Table, vertex, Step, true),
-  PrevFTable = worker_store:table_name(Table, flag, Step - 1),
-  PrevMTable = worker_store:table_name(Table, msg, Step - 1),
-  CurrFTable = worker_store:table_name(Table, flag, Step),
-  CurrMTable = worker_store:table_name(Table, msg, Step),
-  VTable = worker_store:table_name(Table, vertex, Step),
+  phoebus_core_worker_store:sync_table(Table, vertex, Step, true),
+  PrevFTable = phoebus_core_worker_store:table_name(Table, flag, Step - 1),
+  PrevMTable = phoebus_core_worker_store:table_name(Table, msg, Step - 1),
+  CurrFTable = phoebus_core_worker_store:table_name(Table, flag, Step),
+  CurrMTable = phoebus_core_worker_store:table_name(Table, msg, Step),
+  VTable = phoebus_core_worker_store:table_name(Table, vertex, Step),
   {WriteFDs, NewAgg} =
     algo_loop({JobId, WId, NumWorkers, Step}, VTable, PrevFTable,
               PrevMTable, CurrFTable, CurrMTable,
@@ -617,7 +617,7 @@ run_algo({JobId, WId, NumWorkers},
           %% io:format("~n~n~nMerging [~p] to dir [~p]~n~n~n", [FName, Dir]),
           file:close(FD),
           {ok, BPid} =
-            msg_buffer:merge_file(FName, MyPid, CombineFun, Dir),
+            phoebus_core_msg_buffer:merge_file(FName, MyPid, CombineFun, Dir),
           MRef = erlang:monitor(process, BPid),
           [{OWId, BPid, MRef}|BPids]
       end, [], WriteFDs),
@@ -721,7 +721,7 @@ iterate_vertex({JobId, WId, NumWorkers, Step}, Sel, VTable, PrevMTable,
                 %% when size of partion is <500 and >=250
                 io:format("~n~nGot Error 1 while looking up [~p, ~p]~n~n",
                           [VTable, VName]),
-                worker_store:sync_table(VTable, true),
+                phoebus_core_worker_store:sync_table(VTable, true),
                 dets:lookup(VTable, VName)
             end of
             X -> X
@@ -740,7 +740,7 @@ iterate_vertex({JobId, WId, NumWorkers, Step}, Sel, VTable, PrevMTable,
           E1:E2 ->
             io:format("~n~nGot Error while writing [~p, ~p, ~p]~n~n",
                       [E1, E2, NewV]),
-            worker_store:sync_table(VTable, true),
+            phoebus_core_worker_store:sync_table(VTable, true),
             ?STORE(vertex, VTable, NewV)
         end,
         WFDs =
@@ -756,7 +756,7 @@ handle_msgs({JobId, WId, NumWorkers, Step}, WriteFDs, CurrMTable, Msgs) ->
   lists:foldl(
     fun({VName, Msg} = _M, WFDs) ->
         {_Node, OWId} =
-          phoebus_utils:vertex_owner(JobId, VName, NumWorkers),
+          phoebus_core_utils:vertex_owner(JobId, VName, NumWorkers),
         case OWId of
           WId ->
             ?STORE(msg, CurrMTable, {VName, [Msg]}), WFDs;
@@ -770,7 +770,7 @@ handle_msgs({JobId, WId, NumWorkers, Step}, WriteFDs, CurrMTable, Msgs) ->
               end,
             %% io:format("~n~n~nWriting [~p] into [~p]~n~n~n", [M, File]),
             file:write(WriteFD,
-                          serde:serialize_rec(
+                          phoebus_core_serde:serialize_rec(
                             msg, {VName, [Msg]})),
             NewWFDs
         end

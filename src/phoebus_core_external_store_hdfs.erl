@@ -24,7 +24,7 @@
 
 -behaviour(phoebus_core_external_store).
 -include("phoebus.hrl").
--include("thriftHadoopFileSystem_thrift.hrl").
+-include("phoebus_core_hadoopfs_thrift.hrl").
 
 %% API
 -export([init/1,

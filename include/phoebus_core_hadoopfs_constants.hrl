@@ -5,5 +5,4 @@
 %%
 
 
--include("hadoopfs_types.hrl").
-
+-include("phoebus_core_hadoopfs_types.hrl").

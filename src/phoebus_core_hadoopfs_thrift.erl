@@ -8,7 +8,7 @@
 -behaviour(thrift_service).
 
 
--include("thriftHadoopFileSystem_thrift.hrl").
+-include("phoebus_core_hadoopfs_thrift.hrl").
 
 -export([struct_info/1, function_info/2]).
 

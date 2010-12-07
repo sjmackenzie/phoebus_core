@@ -6,7 +6,7 @@
 
 -module(phoebus_core_hadoopfs_types).
 
--include("hadoopfs_types.hrl").
+-include("phoebus_core_hadoopfs_types.hrl").
 
 -export([struct_info/1]).
 %% struct thriftHandle

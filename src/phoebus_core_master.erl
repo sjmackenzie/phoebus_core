@@ -88,7 +88,7 @@ init([Conf]) ->
   JobName = proplists:get_value(name, Conf),
   {T, _} = erlang:statistics(wall_clock),
   io:format("~n### Starting Job : Id[~p] : Name[~p] ###~n", [JobId, JobName]),
-  {ok, SS} = phoebus_core_external_stor:init(proplists:get_value(input_dir, Conf)),
+  {ok, SS} = phoebus_core_external_store:init(proplists:get_value(input_dir, Conf)),
   {ok, Partitions, SS2} = phoebus_core_external_store:partition_input(SS),
   phoebus_core_external_store:destroy(SS2),
   DefAlgoFun =

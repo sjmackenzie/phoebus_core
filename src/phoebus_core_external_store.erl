@@ -53,7 +53,7 @@ init(URI) ->
     lists:foldl(
       fun(_, {SMod, _} = ModInfo) when is_atom(SMod) -> ModInfo;
          (SType, {0, _} = Acc) ->
-          Mod = list_to_atom("external_store_" ++ SType),
+          Mod = list_to_atom("phoebus_core_external_store_" ++ SType),
           case Mod:init(URI) of
             {true, SState} -> {Mod, [{store_module, Mod}|SState]};
             _ -> Acc

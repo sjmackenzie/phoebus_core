@@ -71,7 +71,7 @@ init([PoolSize]) ->
   ets:new(table_pool, [named_table, public]),
   lists:foreach(
     fun(X) ->
-        Name = list_to_atom("worker_table_" ++ integer_to_list(X)),
+        Name = list_to_atom("pheobus_core_worker_table_" ++ integer_to_list(X)),
         ets:insert(table_pool, {Name, none, none})
     end, lists:seq(1, PoolSize)),
   {ok, []}.
